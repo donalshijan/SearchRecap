@@ -1,0 +1,9 @@
+{   "include": ["Backend"],
+    "typeCheckingMode": "basic",
+    "reportMissingImports": "none",
+    "reportMissingModuleSource": "none",
+    "reportMissingTypeStubs": false,
+    "reportUnknownVariableType": "none",
+    "reportUnknownMemberType": "none",
+    "reportUntypedFunctionDecorator": "none"
+  }
