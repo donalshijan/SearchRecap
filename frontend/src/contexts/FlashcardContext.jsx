@@ -1,24 +1,33 @@
 // src/contexts/FlashcardContext.jsx
 import React, { createContext, useState } from 'react'
 import axios from 'axios'
+import { useConfig } from "../hooks/useConfig";
 
 const FlashcardContext = createContext(null)
 
 export function FlashcardProvider({ children }) {
-  const [cache, setCache] = useState({}) // { category: { batch: [], cursor: 0 } }
+  const [cache, setCache] = useState({}) // { category: { batch: [], entryIdx: 0, hasLooped: false } }
   const [currentCategory, setCurrentCategory] = useState('Lexis')
   const [loading, setLoading] = useState(false)
-  const LIMIT = 2
+  const { backendUrl } = useConfig();
+  const LIMIT = 10
 
   const fetchBatch = async (category, forceRefresh = false) => {
+    if (!backendUrl) {
+      console.error('Backend URL not configured')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const res = await axios.get('http://192.168.1.88:8000/random-query', {
+      const res = await axios.get(`${backendUrl}/random-query`, {
         params: { category, limit: LIMIT, force_refresh: forceRefresh }
       })
-      // backend returns an array of queries (adjust if your backend returns different shape)
       const newBatch = Array.isArray(res.data) ? res.data : (res.data.queries ?? [])
-      setCache(prev => ({ ...prev, [category]: { batch: newBatch, cursor: 0 } }))
+      setCache(prev => ({
+        ...prev,
+        [category]: { batch: newBatch, entryIdx: 0, hasLooped: false , maxClockWiseCursor : 0, minAntiClockWiseCursor : 0, cursor : 0 }
+      }))
     } catch (err) {
       console.error('fetchBatch error', err)
     } finally {
@@ -26,34 +35,47 @@ export function FlashcardProvider({ children }) {
     }
   }
 
-  const nextQuery = async () => {
+  // 🚀 Move forward circularly
+  const nextQuery = () => {
     const cat = currentCategory
     const entry = cache[cat]
+    if (!entry || !entry.batch || entry.batch.length === 0) return
 
-    // If no cached batch, fetch one
-    if (!entry || !entry.batch || entry.batch.length === 0  || entry.cursor >= entry.batch.length) {
-      await fetchBatch(cat)
-      return
+    const hasLooped = Math.max(entry.maxClockWiseCursor,entry.cursor + 1) + -1*entry.minAntiClockWiseCursor == entry.batch.length-1 ? true : entry.hasLooped
+    let newMaxClockWiseCursor = entry.maxClockWiseCursor
+    if(entry.cursor>=0){
+      newMaxClockWiseCursor = Math.max(entry.maxClockWiseCursor,Math.min(entry.batch.length-1,entry.cursor + 1))
     }
+    const nextEntryIdx = (entry.entryIdx + 1) % entry.batch.length
 
-    const { batch, cursor } = entry
+    setCache(prev => ({
+      ...prev,
+      [cat]: { ...entry, entryIdx: nextEntryIdx, hasLooped , maxClockWiseCursor : newMaxClockWiseCursor , cursor : Math.min(entry.batch.length-1,entry.cursor + 1)}
+    }))
+  }
 
-    // If cursor already beyond last index => we've consumed whole batch; fetch next on next call
-    if (cursor < batch.length - 1) {
-      // mark as consumed by setting cursor to batch.length (so nextQuery triggers fetchBatch above)
-      setCache(prev => ({ ...prev, [cat]: { ...entry, cursor: batch.length } }))
-      return
+  // ⬅️ Move backward circularly
+  const prevQuery = () => {
+    const cat = currentCategory
+    const entry = cache[cat]
+    if (!entry || !entry.batch || entry.batch.length === 0) return
+
+    const hasLooped = entry.maxClockWiseCursor + -1*Math.min(entry.minAntiClockWiseCursor,entry.cursor - 1 ) == entry.batch.length-1 ? true : entry.hasLooped
+    let newMinAntiClockWiseCursor = entry.minAntiClockWiseCursor
+    if(entry.cursor<=0){
+      newMinAntiClockWiseCursor = Math.min(entry.minAntiClockWiseCursor,Math.max(-1*(entry.batch.length-1),entry.cursor -1) )
     }
-
-    // Otherwise advance cursor
-    setCache(prev => ({ ...prev, [cat]: { ...entry, cursor: cursor + 1 } }))
+    const prevEntryIdx = (entry.entryIdx - 1 + entry.batch.length) % entry.batch.length
+    setCache(prev => ({
+      ...prev,
+      [cat]: { ...entry, entryIdx: prevEntryIdx , minAntiClockWiseCursor : newMinAntiClockWiseCursor , cursor : Math.max(-1*(entry.batch.length-1),entry.cursor -1), hasLooped}
+    }))
   }
 
   const currentQuery = () => {
     const entry = cache[currentCategory]
     if (!entry || !entry.batch || entry.batch.length === 0) return null
-    const idx = Math.min(entry.cursor, entry.batch.length - 1)
-    return entry.batch[idx]
+    return entry.batch[entry.entryIdx]
   }
 
   const switchCategory = async (category) => {
@@ -63,15 +85,23 @@ export function FlashcardProvider({ children }) {
     }
   }
 
+  const getProgress = () => {
+    const entry = cache[currentCategory]
+    if (!entry || !entry.batch || entry.batch.length === 0) return { index: 0, total: 0 }
+    return { index: entry.entryIdx, total: entry.batch.length, hasLooped: entry.hasLooped ,maxClockWiseCursor : entry.maxClockWiseCursor, minAntiClockWiseCursor: entry.minAntiClockWiseCursor}
+  }
+
   return (
     <FlashcardContext.Provider value={{
       cache,
       currentCategory,
       switchCategory,
       nextQuery,
+      prevQuery,
       currentQuery,
       loading,
-      fetchBatch
+      fetchBatch,
+      getProgress
     }}>
       {children}
     </FlashcardContext.Provider>

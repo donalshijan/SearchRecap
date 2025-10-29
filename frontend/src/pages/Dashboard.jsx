@@ -21,7 +21,6 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <h2 className="section-title">Analytics Dashboard</h2>
       <TimeframeSelector selected={period} onChange={setPeriod} />
       <div className="chart-wrapper">
         <Chart data={data} />

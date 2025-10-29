@@ -58,6 +58,7 @@ node_modules/
 # Build output
 build/
 dist/
+Frontend_builds
 *.js.map
 *.css.map
 
@@ -111,3 +112,6 @@ htmlcov/
 
 
 Takeout
+
+backend_main*
+frontend_main*

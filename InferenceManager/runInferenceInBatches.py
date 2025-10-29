@@ -42,6 +42,8 @@ def print_progress_bar(iteration, total, prefix='', suffix='', batch_time=None, 
     filled_length = int(length * iteration // total)
     bar = fill * filled_length + empty * (length - filled_length)
     bt = f" | Batch Processing Time: {batch_time:.2f}s" if batch_time is not None else ""
+    # clear the line before reprinting
+    sys.stdout.write('\r\033[K') 
     sys.stdout.write(f'\r{prefix} |{bar}| {percent}%{bt} {suffix}')
     sys.stdout.flush()
     if iteration >= total:
@@ -122,7 +124,14 @@ def run_batch_inference(input_file: str | Path, output_file: str | Path, prompt_
     total_batches = (total_items + BATCH_SIZE - 1) // BATCH_SIZE
     start_time = time.time()
     print(f"\n🔹 Processing {total_batches} batches...\n")
-
+    print_progress_bar(
+                iteration=0,
+                total=total_batches,
+                prefix=f"Batch {0}/{total_batches}",
+                suffix=f"Elapsed: {0:.1f}s  Items_Processed: {0}",
+                batch_time=0,
+                length=40
+            )
     for i in range(0, len(data_items[:100]), BATCH_SIZE):
         batch: list[dict] = data_items[i : i + BATCH_SIZE]
         batch_id: int = i // BATCH_SIZE + 1
@@ -215,7 +224,7 @@ async def run_batch_inference_concurrently(
 
     print(f"Loaded {len(data_items)} {DATA_LABEL}.")
     print(f"Processing with task: {TASK_DESCRIPTION}")
-
+    
     results: list[dict] = []
     total_items = len(data_items[:100])
     total_batches = (total_items + BATCH_SIZE - 1) // BATCH_SIZE
@@ -223,7 +232,15 @@ async def run_batch_inference_concurrently(
     progress_lock = asyncio.Lock()        # prevent overlapping prints
     completed_batches = 0                 # shared atomic progress counter
     start_time = time.time()
-
+    print(f"\n🔹 Processing {total_batches} batches...\n")
+    print_progress_bar(
+                    iteration=completed_batches,
+                    total=total_batches,
+                    prefix=f"Batch {0}/{total_batches}",
+                    suffix=f"Elapsed: {0:.1f}s  Items_Processed: {0}",
+                    batch_time=0,
+                    length=40
+                )
     async def sem_task(batch, batch_id):
         nonlocal completed_batches
         async with semaphore:

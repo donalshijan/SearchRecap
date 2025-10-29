@@ -19,7 +19,7 @@ def extract_queries(input_path: str, output_path: str):
 
             record = {
                 "query": query,
-                "time": time
+                "timestamp": time
             }
 
             cleaned.append(record)

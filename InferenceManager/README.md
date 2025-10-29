@@ -210,7 +210,7 @@ ruff format .
 
 ## 📄 License
 
-This project is licensed under the [Apache License 2.0](./LICENSE).
+The project contained in the folder of this READM.md file is licensed under the [Apache License 2.0](./LICENSE).
 
 You are free to use, modify, and self-host this software, provided that you include the original copyright and license notice.
 
