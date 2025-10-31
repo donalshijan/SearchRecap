@@ -89,13 +89,11 @@ Once activated, your terminal prompt should look like:
 ```bash
 (.venv) ➜ SearchRecap
 ```
+From Project Root Directory:
 Install backend dependencies
 ```bash
-cd Backend
 pip3 install -r requirements.txt
-cd ..
 ```
-From Project Root Directory:
 
 Install pyinstaller if not already
 ```bash
@@ -184,15 +182,24 @@ If you want to test without compiling binaries:
 
 ---
 
-## 📦 Upcoming: Automated Build Script
+## 📦 Automated Build Script
+You can build the backend and frontend executable in one go by running the command
 
-We’re working on a unified build pipeline (`build_all.py`) that will:
+MacOs/Linux
+```bash
+chmod +x build.sh
+./build.sh
+```
 
-* Build backend (PyInstaller)
-* Build frontend (pkg)
-* Move all executables to project root
-* Package versioned releases for Windows/macOS/Linux automatically.
+Windows (need to have bash installed)
+```bash
+bash build.sh
+```
 
+and then to run the app
+```bash
+python3 launch.py
+```
 ---
 
 ## ⚠️ Notes

@@ -23,6 +23,40 @@ check_cmd() {
     command -v "$1" >/dev/null 2>&1 || fail_exit "$1 not found. Please install it."
 }
 
+normalize_path() {
+    # Convert Windows paths when using Git Bash or Cygwin
+    if command -v cygpath >/dev/null 2>&1; then
+        cygpath -m "$1"
+    else
+        echo "$1"
+    fi
+}
+
+# ----------- Detect OS and set PIP cache dir accordingly -----------
+OS=$(uname -s)
+case "$OS" in
+  Darwin)
+    export PIP_CACHE_DIR="$HOME/Library/Caches/pip"
+    ;;
+  Linux)
+    export PIP_CACHE_DIR="$HOME/.cache/pip"
+    ;;
+  *)
+    echo "⚠️ Unknown OS ($OS) — defaulting to ~/.cache/pip"
+    export PIP_CACHE_DIR="$HOME/.cache/pip"
+    ;;
+esac
+
+
+# ----------- Verify pip cache directory exists -----------
+if [ ! -d "$PIP_CACHE_DIR" ]; then
+    echo -e "${YELLOW}⚠️ Pip cache directory not found at $PIP_CACHE_DIR — creating...${RESET}"
+    mkdir -p "$PIP_CACHE_DIR" || fail_exit "Failed to create pip cache directory"
+fi
+
+echo -e "${INFO} Using pip cache directory: ${GREEN}$PIP_CACHE_DIR${RESET}"
+
+
 # ----------- Preflight Checks -----------
 echo -e "${INFO} Checking prerequisites..."
 
@@ -38,20 +72,28 @@ echo -e "${GREEN}${OK} Node $NODE_VER detected${RESET}"
 
 # ----------- Virtual Environment Setup -----------
 echo -e "${INFO} Setting up Python virtual environment..."
-python3 -m venv .venv || fail_exit "Failed to create virtual environment."
-source .venv/bin/activate || fail_exit "Failed to activate virtual environment."
+if [ ! -d ".venv" ]; then
+  echo -e "${INFO} Creating fresh virtual environment..."
+  python3 -m venv .venv || fail_exit "Failed to create virtual environment."
+else
+  echo -e "${INFO} Reusing existing virtual environment...${RESET}"
+fi
+
+# Windows Git Bash workaround for activation
+if [[ "$PLATFORM" == "windows" ]]; then
+  source .venv/Scripts/activate || fail_exit "Failed to activate virtual environment on Windows."
+else
+  source .venv/bin/activate || fail_exit "Failed to activate virtual environment."
+fi
 
 
 # ----------- Backend Build -----------
 echo -e "${BUILD} Building Backend..."
 echo -e "${INFO} Cleaning old backend build artifacts..."
-rm -rf build dist __pycache__ backend_main backend_main.exe || true
-cd Backend || fail_exit "Backend folder not found."
+rm -rf build dist __pycache__ backend_main backend_main.spec backend_main.exe || true
 
 pip3 install -r requirements.txt || fail_exit "Failed to install backend dependencies."
 pip3 install pyinstaller || fail_exit "Failed to install PyInstaller."
-
-cd ..
 pyinstaller --onefile --name backend_main ./Backend/main.py --add-data ".env:." || fail_exit "Backend build failed."
 mv dist/backend_main* ./ 2>/dev/null || fail_exit "Failed to move backend binary."
 
